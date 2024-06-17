@@ -4,11 +4,11 @@
 
 Set the following variables for cluster name, zone, machine type, number of nodes, k8s version, and the target GKE project
 ```
-GKE_CLUSTER_NAME="gke-ambient-1"
+GKE_CLUSTER_NAME="gke-ambient-danehans"
 GKE_CLUSTER_ZONE="us-west4-b"
 MAIN_MACHINE_TYPE="n2-standard-8"
 MAIN_NUM_NODES=""
-GKE_PROJECT=""
+GKE_PROJECT="solo-oss"
 CLUSTER_VERSION="1.29.1-gke.1589020"
 ```
 

@@ -13,28 +13,26 @@ helm upgrade --install istio-base istio/base -n istio-system --version 1.22.0 --
 
 ## install Kubernetes Gateway CRDs
 ```bash
-echo "installing Kubernetes Gateway CRDs"
 kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
   { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.0.0" | kubectl apply -f -; }
 ```
 
-
 ## install istio-cni
 ```bash
 helm upgrade --install istio-cni istio/cni \
--n kube-system \
+-n istio-system \
 --version=1.22.0 \
 -f -<<EOF
 profile: ambient
 # uncomment below if using GKE
-cni:
-  cniBinDir: /home/kubernetes/bin
+#cni:
+#  cniBinDir: /home/kubernetes/bin
 EOF
 ```
 
 Wait for rollout to complete
 ```bash
-kubectl rollout status ds/istio-cni-node -n kube-system
+kubectl rollout status ds/istio-cni-node -n istio-system
 ```
 
 ## install istiod
@@ -44,6 +42,15 @@ helm upgrade --install istiod istio/istiod \
 --version=1.22.0 \
 -f -<<EOF
 profile: ambient
+global:
+  waypoint:
+    resources:
+      requests:
+        cpu: "256Mi"
+        memory: "512Mi"
+      limits:
+        cpu: "2"
+        memory: "1Gi"
 EOF
 ```
 
@@ -57,15 +64,15 @@ kubectl rollout status deploy/istiod -n istio-system
 For GKE, ztunnel is expected to be deployed in `kube-system`
 ```bash
 helm upgrade --install ztunnel istio/ztunnel \
--n kube-system \
+-n istio-system \
 --version=1.22.0 \
 -f -<<EOF
 hub: docker.io/istio
 tag: 1.22.0
-resources:
-  requests:
-      cpu: 500m
-      memory: 2048Mi
+#resources:
+#  requests:
+#      cpu: 500m
+#      memory: 2048Mi
 istioNamespace: istio-system
 logLevel: error
 EOF
@@ -73,7 +80,7 @@ EOF
 
 Wait for rollout to complete
 ```bash
-kubectl rollout status ds/ztunnel -n kube-system
+kubectl rollout status ds/ztunnel -n istio-system
 ```
 
 # Configure an App and validate mTLS working
@@ -88,42 +95,40 @@ kubectl apply -k client/ambient
 kubectl apply -k httpbin/ambient
 ```
 
-## exec into sleep client and curl httpbin
+## curl httpbin from the sleep client
 ```bash
-kubectl exec -it deploy/sleep -n client -c sleep sh
-
-curl httpbin.httpbin.svc.cluster.local:8000/get
+kubectl exec deploy/sleep -n client -c sleep -- curl httpbin.httpbin.svc.cluster.local:8000/get
 ```
 
 ## watch logs of ztunnel for traffic interception
 ```bash
-kubectl logs -n kube-system ds/ztunnel -f
+kubectl logs -n istio-system ds/ztunnel -f
 ```
+__Note:__ Since error level logging is configured, you will not see successful connections.
 
 ## remove httpbin
 ```bash
 kubectl delete -k httpbin/ambient
 ```
 
-
 # Set up the Performance Test
 
 ## deploy 50 namespace tiered-app into ambient mesh
 ```bash
-kubectl apply -k tiered-app/50-namespace-app/ambient
+NUM=1 # 1, 5, 20, 30, or 50
+kubectl apply -k tiered-app/${NUM}-namespace-app/ambient
 ```
 
-## exec into sleep client and curl tiered-app
+## curl tiered-app from the sleep client
 ```bash
-kubectl exec -it deploy/sleep -n client sh
-
-curl http://tier-1-app-a.ns-1.svc.cluster.local:8080
+kubectl exec deploy/sleep -n client -- curl http://tier-1-app-a.ns-1.svc.cluster.local:8080
 ```
 
 ## watch logs of ztunnel for traffic interception
 ```bash
 kubectl logs -n kube-system ds/ztunnel -f
 ```
+__Note:__ Since error level logging is configured, you will not see successful connections.
 
 Output should look similar to below, note you can see the spiffe ID of client sleep
 ```
@@ -134,7 +139,7 @@ Output should look similar to below, note you can see the spiffe ID of client sl
 
 ## deploy 50 vegeta loadgenerators
 ```bash
-kubectl apply -k loadgenerators/50-loadgenerators
+kubectl apply -k loadgenerators/${NUM}-loadgenerators
 ```
 
 ## watch logs of vegeta loadgenerator
@@ -153,7 +158,7 @@ In the `experiment-data/tail-logs.sh` script change the following variables
 ```
 # Define the range of namespaces
 start_namespace=1
-end_namespace=50
+end_namespace=${NUM}
 
 # Define the output file
 output_file="450rps-10m-30-app-istio-ambient-l4-run-data-run-1.md"
@@ -161,28 +166,27 @@ output_file="450rps-10m-30-app-istio-ambient-l4-run-data-run-1.md"
 
 Run the script to collect logs:
 ```
-cd experiment-data
-./tail-logs.sh
+cd experiment-data && ./tail-logs.sh && cd ..
 ```
 
 ## configure l4 auth policy
 ```bash
-kubectl apply -k tiered-app/50-namespace-app/ambient/l4-policy
+kubectl apply -k tiered-app/${NUM}-namespace-app/ambient/l4-policy
 ```
 
 ## configure waypoint proxy per namespace
 ```bash
-kubectl apply -k tiered-app/50-namespace-app/ambient/waypoints
+kubectl apply -k tiered-app/${NUM}-namespace-app/ambient/waypoints
 ```
 
 ## configure l7 auth policy
 ```bash
-kubectl apply -k tiered-app/50-namespace-app/ambient/l7-policy
+kubectl apply -k tiered-app/${NUM}-namespace-app/ambient/l7-policy
 ```
 
 ## example exec into vegeta to run your own test (optional)
 ```bash
-kubectl --namespace ns-1 exec -it deploy/vegeta -c vegeta -- /bin/sh
+kubectl --namespace ns-1 exec deploy/vegeta-ns-1 -c vegeta -- /bin/sh
 ```
 
 test run:
@@ -207,9 +211,9 @@ kubectl port-forward svc/kiali -n istio-system 20001:20001
 
 ## uninstall
 ```bash
-helm uninstall ztunnel -n kube-system
+helm uninstall ztunnel -n istio-system
 helm uninstall istiod -n istio-system
-helm uninstall istio-cni -n kube-system
+helm uninstall istio-cni -n istio-system
 helm uninstall istio-base -n istio-system
 kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd?ref=v1.0.0" | kubectl delete -f -;
 ```

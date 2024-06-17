@@ -3,6 +3,7 @@
 ## add linkerd helm repo
 ```bash
 helm repo add linkerd https://helm.linkerd.io/stable
+helm repo update
 ```
 
 ## install linkerd crds
@@ -60,6 +61,8 @@ helm upgrade --install linkerd-control-plane -n linkerd \
   linkerd/linkerd-control-plane
 ```
 
+Install the [linkerd CLI](https://linkerd.io/2.15/getting-started/#step-1-install-the-cli).
+
 ## check
 ```bash
 linkerd check
@@ -74,7 +77,6 @@ linkerd viz install | kubectl apply -f -
 ```bash
 linkerd viz dashboard &
 ```
-
 
 # Configure an App
 
@@ -93,11 +95,9 @@ check to see if httpbin has been deployed with a linkerd proxy
 kubectl get pods -n httpbin
 ```
 
-## exec into sleep client and curl httpbin /get endpoint to verify mTLS
+## curl the httpbin service from the sleep pod
 ```bash
-kubectl exec -it deploy/sleep -n client -c sleep sh
-
-curl httpbin.httpbin.svc.cluster.local:8000/get
+kubectl exec deploy/sleep -n client -c sleep -- curl -s httpbin.httpbin.svc.cluster.local:8000/get
 ```
 
 Output should look similar to below:
@@ -132,9 +132,7 @@ kubectl apply -k tiered-app/50-namespace-app/linkerd
 
 ## exec into sleep client and curl tiered-app
 ```bash
-kubectl exec -it deploy/sleep -n client -c sleep sh
-
-curl http://tier-1-app-a.ns-1.svc.cluster.local:8080
+kubectl exec  deploy/sleep -n client -c sleep -- curl -s http://tier-1-app-a.ns-1.svc.cluster.local:8080
 ```
 
 ## deploy 50 vegeta loadgenerators
@@ -166,8 +164,7 @@ output_file="450rps-10m-50-app-linkerd-default-istio-resources-data-run-1.md"
 
 Run the script to collect logs:
 ```
-cd experiment-data
-./tail-logs.sh
+cd experiment-data && ./tail-logs.sh
 ```
 
 ## configure l4 auth policy

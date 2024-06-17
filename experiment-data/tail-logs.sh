@@ -2,10 +2,10 @@
 
 # Define the range of namespaces
 start_namespace=1
-end_namespace=50
+end_namespace=1
 
 # Define the output file
-output_file="450rps-10m-50-app-linkerd-l4auth-run-data-run-1.md"
+output_file="ambient-mtls-l7auth.log"
 
 # Define label selector for pods
 label_selector="app=vegeta"  # Modify this label selector as per your requirement

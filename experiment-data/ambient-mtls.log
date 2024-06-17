@@ -1,0 +1,15 @@
+```
+Namespace: ns-1
+Pod: vegeta-ns-1-9f6d49ccd-v9j2r
+Status Codes  [code:count]                      200:2700  
+Error Set:
+Requests      [total, rate, throughput]         2700, 450.10, 449.73
+Duration      [total, attack, wait]             6.004s, 5.999s, 4.939ms
+Latencies     [min, mean, 50, 90, 95, 99, max]  4.049ms, 23.745ms, 4.642ms, 52.084ms, 56.517ms, 76.923ms, 100.476ms
+Bytes In      [total, mean]                     7606297, 2817.15
+Bytes Out     [total, mean]                     0, 0.00
+Success       [ratio]                           100.00%
+Status Codes  [code:count]                      200:2700  
+Error Set:
+
+```
